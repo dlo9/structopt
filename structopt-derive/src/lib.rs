@@ -195,7 +195,7 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
                 };
                 quote!(#field_name: <#subcmd_type>::from_subcommand(matches.subcommand())#unwrapper)
             }
-            Kind::FlattenStruct => quote!(#field_name: ::structopt::StructOpt::from_clap(matches)),
+            Kind::FlattenStruct => quote!(#field_name: ::structopt::StructOpt::from_clap(matches, config)),
             Kind::Arg(ty) => {
                 use Parser::*;
                 let (value_of, values_of, parse) = match *attrs.parser() {
@@ -217,7 +217,12 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
                 let occurrences = attrs.parser().0 == Parser::FromOccurrences;
                 let name = attrs.cased_name();
                 let field_value = match ty {
-                    Ty::Bool => quote!(matches.is_present(#name)),
+                    //Ty::Bool => quote!(matches.is_present(#name)),
+                    //Ty::Bool => quote!(#parent_attribute.config_fn.unwrap()(::structopt::StructOpt::clap())),
+                    Ty::Bool => quote!{
+                        // TODO: check if config is some
+                        matches.is_present(#name) || config.unwrap().get(#name).unwrap_or_default()
+                    },
                     Ty::Option => quote! {
                         matches.#value_of(#name)
                             .as_ref()
@@ -256,7 +261,7 @@ fn gen_from_clap(
     let field_block = gen_constructor(fields, parent_attribute);
 
     quote! {
-        fn from_clap(matches: &::structopt::clap::ArgMatches) -> Self {
+        fn from_clap(matches: &::structopt::clap::ArgMatches, config: Option<&::structopt::config::Config>) -> Self {
             #struct_name #field_block
         }
     }
