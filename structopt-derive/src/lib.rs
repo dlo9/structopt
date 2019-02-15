@@ -154,8 +154,6 @@ fn gen_augmentation(
                     Ty::Vec => quote!( .takes_value(true).multiple(true) #validator ),
                     Ty::Other if occurrences => quote!( .takes_value(false).multiple(true) ),
                     Ty::Other => {
-                        // TODO: intercept default values and use if not in config?
-                        //let required = !attrs.has_method("default_value");
                         quote!( .takes_value(true).multiple(false) #validator )
                     }
                 };
@@ -217,6 +215,7 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
 
                 let occurrences = attrs.parser().0 == Parser::FromOccurrences;
                 let name = attrs.cased_name();
+                let default_value = attrs.default_value();
                 let field_value = match ty {
                     Ty::Bool => quote!{
                         // TODO: check if config is some
@@ -226,25 +225,33 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
                         matches.#value_of(#name)
                             .as_ref()
                             .map(#parse)
-                            // TODO: should use same parsing function?
+                            // TODO: should use same parsing function, or this?
                             //.or_else(|| config.unwrap().get(#name).ok())
                             .or_else(|| config.unwrap().get_str(#name).as_ref().map(#parse).ok())
                     },
-                    Ty::Vec => quote! {
-                        matches.#values_of(#name)
-                            .map(|v| v.map(#parse).collect())
-                            .or_else(|| config.unwrap().get_array(#name).map(|v| v.into_iter().map(|i| i.into_str().as_ref().map(#parse).unwrap()).collect()).ok())
-                            .unwrap_or_else(Vec::new)
+                    Ty::Vec => {
+                        let default_value_clause = if default_value.is_some() { quote!{ .or_else(|| Some(#default_value.into_iter().map(#parse).collect())) } } else { quote!() };
+                        quote! {
+                            matches.#values_of(#name)
+                                .map(|v| v.map(#parse).collect())
+                                .or_else(|| config.unwrap().get_array(#name).map(|v| v.into_iter().map(|i| i.into_str().as_ref().map(#parse).unwrap()).collect()).ok())
+                                #default_value_clause
+                                .unwrap_or_else(Vec::new)
+                        }
                     },
                     Ty::Other if occurrences => quote! {{
                         let occurences = #parse(matches.#value_of(#name));
                         if occurences > 0 { occurences } else { config.unwrap().get(#name).unwrap_or_default() }
                     }},
-                    Ty::Other => quote! {
-                        matches.#value_of(#name)
-                            .map(#parse)
-                            .or_else(|| config.unwrap().get_str(#name).as_ref().map(#parse).ok())
-                            .expect(concat!("Option '", #name, "' is missing from both config and command line"))
+                    Ty::Other => {
+                        let default_value_clause = if default_value.is_some() { quote!(.or_else(|| Some(#default_value).map(#parse))) } else { quote!() };
+                        quote! {
+                            matches.#value_of(#name)
+                                .map(#parse)
+                                .or_else(|| config.unwrap().get_str(#name).as_ref().map(#parse).ok())
+                                #default_value_clause
+                                .expect(concat!("Option '", #name, "' is missing from config, command line, and default_value()"))
+                        }
                     },
                 };
 

@@ -34,6 +34,7 @@ pub struct Attrs {
     parser: (Parser, TokenStream),
     has_custom_parser: bool,
     kind: Kind,
+    default_value: Option<TokenStream>,
 }
 #[derive(Debug)]
 struct Method {
@@ -125,6 +126,7 @@ impl Attrs {
             parser: (Parser::TryFromStr, quote!(::std::str::FromStr::from_str)),
             has_custom_parser: false,
             kind: Kind::Arg(Ty::Other),
+            default_value: None,
         }
     }
     fn push_str_method(&mut self, name: &str, arg: &str) {
@@ -454,7 +456,11 @@ impl Attrs {
                             panic!("required is meaningless for Option")
                         }
                     }
-                    _ => (),
+                    _ => {
+                        if let Some(i) = res.methods.iter().position(|i| i.name == "default_value")  {
+                            res.default_value = Some(res.methods.remove(i).args);
+                        }
+                    },
                 }
                 res.kind = Kind::Arg(ty);
             }
@@ -490,5 +496,9 @@ impl Attrs {
     }
     pub fn casing(&self) -> CasingStyle {
         self.casing
+    }
+
+    pub fn default_value(&self) -> &Option<TokenStream> {
+        &self.default_value
     }
 }
