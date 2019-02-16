@@ -149,7 +149,7 @@ fn gen_augmentation(
                 };
 
                 let modifier = match ty {
-                    Ty::Bool => quote!( .takes_value(false).multiple(false) ),
+                    Ty::Bool => quote!( .min_values(0).max_values(1).multiple(false) ),
                     Ty::Option => quote!( .takes_value(true).multiple(false) #validator ),
                     Ty::Vec => quote!( .takes_value(true).multiple(true) #validator ),
                     Ty::Other if occurrences => quote!( .takes_value(false).multiple(true) ),
@@ -218,7 +218,10 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
                 let default_value = attrs.default_value();
                 let field_value = match ty {
                     Ty::Bool => quote!{
-                        matches.is_present(#name) || config.and_then(|c| c.get_bool(#name).ok()).unwrap_or_default()
+                        matches.value_of(#name)
+                            .map(#parse)
+                            .or_else(|| config.and_then(|c| c.get_bool(#name).ok()))
+                            .unwrap_or_default()
                     },
                     Ty::Option => quote! {
                         matches.#value_of(#name)
