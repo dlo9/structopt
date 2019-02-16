@@ -227,8 +227,6 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
                         matches.#value_of(#name)
                             .as_ref()
                             .map(#parse)
-                            // TODO: should use same parsing function, or this?
-                            //.or_else(|| config.and_then(|c| c.get(#name).ok()))
                             .or_else(|| config.and_then(|c| c.get_str(#name).as_ref().map(#parse).ok()))
                     },
                     Ty::Vec => {
@@ -252,7 +250,7 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
                                 .map(#parse)
                                 .or_else(|| config.and_then(|c| c.get_str(#name).as_ref().map(#parse).ok()))
                                 #default_value_clause
-                                .expect(concat!("Option '", #name, "' is missing from config, command line, and default_value"))
+                                .expect(concat!("Option '", #name, "' is missing from command line, config, and default_value"))
                         }
                     },
                 };

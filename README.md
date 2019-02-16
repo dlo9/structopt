@@ -2,6 +2,18 @@
 
 Parse command line argument by defining a struct.  It combines [clap](https://crates.io/crates/clap) with custom derive.
 
+## Fork Improvements
+Fork improvements are not yet documented, but include:
+- [config-rs](https://crates.io/crates/config) integration, including automatic fallback to a supplied Config when a key is missing from the command line
+- default_value fallback when the key is missing from both the command line and Config
+- Optional explicit flags (i.e., --dry-run=false) to override config settings
+- Raw default_value for Vec and Other types
+
+Possible future improvements:
+- Remove parsing functions, and rely on serde instead
+- Documentation & tests for above improvements
+- Allow config values from both short and long (currently is case-corrected variable name)
+
 ## Documentation
 
 Find it on [Docs.rs](https://docs.rs/structopt).  You can also check the [examples](https://github.com/TeXitoi/structopt/tree/master/examples) and the [changelog](https://github.com/TeXitoi/structopt/blob/master/CHANGELOG.md).
