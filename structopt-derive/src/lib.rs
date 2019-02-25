@@ -220,21 +220,27 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
                     Ty::Bool => quote!{
                         matches.value_of(#name)
                             .map(#parse)
-                            .or_else(|| config.and_then(|c| c.get_bool(#name).ok()))
+                            .or_else(|| config.and_then(|c| Some(c.get_bool(#name).unwrap())))
                             .unwrap_or_default()
                     },
                     Ty::Option => quote! {
                         matches.#value_of(#name)
                             .as_ref()
                             .map(#parse)
-                            .or_else(|| config.and_then(|c| c.get_str(#name).as_ref().map(#parse).ok()))
+                            .or_else(|| config.and_then(|c| {
+                                match c.get(#name) {
+                                    Err(ConfigError::NotFound(_)) => None,
+                                    // Re-wrap here to panic on potential errors
+                                    r @ _ => Some(r.unwrap()),
+                                }
+                            }))
                     },
                     Ty::Vec => {
                         let default_value_clause = if default_value.is_some() { quote!{ .or_else(|| Some(#default_value.into_iter().map(#parse).collect())) } } else { quote!() };
                         quote! {
                             matches.#values_of(#name)
                                 .map(|v| v.map(#parse).collect())
-                                .or_else(|| config.and_then(|c| c.get_array(#name).map(|v| v.into_iter().map(|i| i.into_str().as_ref().map(#parse).unwrap()).collect()).ok()))
+                                .or_else(|| config.and_then(|c| Some(c.get(#name).unwrap())))
                                 #default_value_clause
                                 .unwrap_or_else(Vec::new)
                         }
@@ -248,9 +254,9 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
                         quote! {
                             matches.#value_of(#name)
                                 .map(#parse)
-                                .or_else(|| config.and_then(|c| c.get_str(#name).as_ref().map(#parse).ok()))
+                                .or_else(|| config.and_then(|c| Some(c.get(#name).unwrap())))
                                 #default_value_clause
-                                .expect(concat!("Option '", #name, "' is missing from command line, config, and default_value"))
+                                .expect(concat!("Argument '", #name, "' is missing from command line, config, and default_value"))
                         }
                     },
                 };
