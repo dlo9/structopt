@@ -9,6 +9,10 @@ Fork improvements are not yet documented, but include:
 - Optional explicit flags (i.e., --dry-run=false) to override config settings
 - Raw default_value for Vec and Other types
 
+Bugs (most require clap modifications to fix):
+- Non-optional arguments appear as optional in --help
+- Missing arguments fail in structopt's unwrap instead of clap's usage error
+
 Possible future improvements:
 - Remove parsing functions, and rely on serde instead
 - Documentation & tests for above improvements
