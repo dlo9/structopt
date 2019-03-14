@@ -82,8 +82,8 @@ impl ::std::str::FromStr for Parser {
 }
 
 impl CasingStyle {
-    fn translate(&self, input: &str) -> String {
-        match *self {
+    fn translate(self, input: &str) -> String {
+        match self {
             CasingStyle::Pascal => input.to_camel_case(),
             CasingStyle::Kebab => input.to_kebab_case(),
             CasingStyle::Camel => input.to_mixed_case(),
@@ -150,26 +150,26 @@ impl Attrs {
         use Meta::*;
         use NestedMeta::*;
 
-        let structopt_attrs = attrs
-            .iter()
-            .filter_map(|attr| {
-                let path = &attr.path;
-                match quote!(#path).to_string().as_ref() {
-                    "structopt" => Some(
-                        attr.interpret_meta()
-                            .expect(&format!("invalid structopt syntax: {}", quote!(#attr))),
-                    ),
-                    _ => None,
-                }
-            })
-            .flat_map(|m| match m {
-                List(l) => l.nested,
-                tokens => panic!("unsupported syntax: {}", quote!(#tokens).to_string()),
-            })
-            .map(|m| match m {
-                Meta(m) => m,
-                ref tokens => panic!("unsupported syntax: {}", quote!(#tokens).to_string()),
-            });
+        let structopt_attrs =
+            attrs
+                .iter()
+                .filter_map(|attr| {
+                    let path = &attr.path;
+                    match quote!(#path).to_string().as_ref() {
+                        "structopt" => Some(attr.interpret_meta().unwrap_or_else(|| {
+                            panic!("invalid structopt syntax: {}", quote!(#attr))
+                        })),
+                        _ => None,
+                    }
+                })
+                .flat_map(|m| match m {
+                    List(l) => l.nested,
+                    tokens => panic!("unsupported syntax: {}", quote!(#tokens).to_string()),
+                })
+                .map(|m| match m {
+                    Meta(m) => m,
+                    ref tokens => panic!("unsupported syntax: {}", quote!(#tokens).to_string()),
+                });
 
         for attr in structopt_attrs {
             match attr {
@@ -227,7 +227,7 @@ impl Attrs {
                             };
                             (parser, function)
                         }
-                        ref l @ _ => panic!("unknown value parser specification: {}", quote!(#l)),
+                        ref l => panic!("unknown value parser specification: {}", quote!(#l)),
                     };
                 }
                 List(MetaList {
@@ -242,7 +242,7 @@ impl Attrs {
                                 lit: Str(ref v),
                                 ..
                             })) => self.push_raw_method(&ident.to_string(), v),
-                            ref mi @ _ => panic!("unsupported raw entry: {}", quote!(#mi)),
+                            ref mi => panic!("unsupported raw entry: {}", quote!(#mi)),
                         }
                     }
                 }
@@ -265,11 +265,13 @@ impl Attrs {
         }
     }
     fn push_raw_method(&mut self, name: &str, args: &LitStr) {
-        let ts: TokenStream = args.value().parse().expect(&format!(
-            "bad parameter {} = {}: the parameter must be valid rust code",
-            name,
-            quote!(#args)
-        ));
+        let ts: TokenStream = args.value().parse().unwrap_or_else(|_| {
+            panic!(
+                "bad parameter {} = {}: the parameter must be valid rust code",
+                name,
+                quote!(#args)
+            )
+        });
         self.methods.push(Method {
             name: name.to_string(),
             args: quote!(#(#ts)*),
@@ -280,9 +282,10 @@ impl Attrs {
             .iter()
             .filter_map(|attr| {
                 let path = &attr.path;
-                match quote!(#path).to_string() == "doc" {
-                    true => attr.interpret_meta(),
-                    false => None,
+                if quote!(#path).to_string() == "doc" {
+                    attr.interpret_meta()
+                } else {
+                    None
                 }
             })
             .filter_map(|attr| {
@@ -327,7 +330,7 @@ impl Attrs {
             .join("\n");
 
         let expected_doc_comment_split = if let Some(content) = doc_comments.get(1) {
-            (doc_comments.len() > 2) && (content == &"\n\n")
+            (doc_comments.len() > 2) && (content == "\n\n")
         } else {
             false
         };
@@ -476,7 +479,7 @@ impl Attrs {
         }
     }
     pub fn has_method(&self, method: &str) -> bool {
-        self.methods.iter().find(|m| m.name == method).is_some()
+        self.methods.iter().any(|m| m.name == method)
     }
     pub fn methods(&self) -> TokenStream {
         let methods = self.methods.iter().map(|&Method { ref name, ref args }| {

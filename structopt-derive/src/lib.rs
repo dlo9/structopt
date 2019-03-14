@@ -225,7 +225,6 @@ fn gen_constructor(fields: &Punctuated<Field, Comma>, parent_attribute: &Attrs) 
                     },
                     Ty::Option => quote! {
                         matches.#value_of(#name)
-                            .as_ref()
                             .map(#parse)
                             .or_else(|| config.and_then(|c| {
                                 match c.get(#name) {
